@@ -1,0 +1,211 @@
+# Deploy de Modelo de ML — 3 Abordagens
+
+Reprodução de um projeto de curso (live com engenheiro de dados + cientista de
+dados), com o mesmo modelo de Machine Learning implantado de 3 formas
+diferentes — batch agendado, API containerizada e serverless — para comparar
+arquiteturas de deploy na prática.
+
+🔗 **[Testar a aplicação ao vivo](https://deployml-onpremise.onrender.com)**
+
+> ⚠️ Hospedado no plano gratuito do Render — a primeira requisição pode levar
+> até 1 minuto (cold start). Aguarde o carregamento.
+
+<!-- Espaço para GIF/print da interface em uso -->
+<!-- ![demo](caminho/para/gif-ou-print.gif) -->
+
+---
+
+## O problema
+
+Um modelo Scikit-learn (Pipeline com `ColumnTransformer` + `TargetEncoder` +
+`LGBMClassifier`) prevê se um cliente tem perfil de compra **Online** ou em
+**Loja física**, a partir de 24 variáveis comportamentais e demográficas.
+
+Ter um modelo treinado não é o mesmo que ter um modelo **em produção**. Este
+projeto explora essa distância, implantando o mesmo `.pkl` de 3 formas
+diferentes, cada uma resolvendo um problema de negócio distinto:
+
+| Deploy | Cenário de uso | Status |
+|---|---|---|
+| **1. Batch (Databricks)** | Previsão diária em massa, sem necessidade de resposta imediata | 🟡 Parcial |
+| **2. API + Interface (Docker → Render)** | Uso interativo, um cliente por vez, resposta em tempo real | ✅ Completo |
+| **3. Serverless (Azure Functions)** | Picos de uso irregulares, otimização de custo em ociosidade | ⬜ Não validado (ver seção) |
+
+---
+
+## Por que 3 formas de deploy do mesmo modelo?
+
+Cada abordagem resolve um problema de negócio diferente — não existe "a
+melhor forma de fazer deploy de ML", existe a forma certa pra cada contexto:
+
+- **Batch** é ideal quando a decisão pode esperar (ex: recalcular a
+  probabilidade de todos os clientes uma vez por dia) e o volume de dados é
+  grande — processar tudo de uma vez é mais eficiente que uma predição por
+  vez.
+- **API + Interface** é ideal quando alguém (humano ou outro sistema) precisa
+  de uma resposta imediata, unitária, com baixa latência.
+- **Serverless** é ideal quando o tráfego é imprevisível ou esparso — paga-se
+  apenas pelo tempo de execução, sem manter infraestrutura ociosa ligada.
+
+---
+
+## Pontos técnicos que se repetem nos 3 deploys
+
+- **Pré-processamento vive dentro do `.pkl`.** O pipeline salvo contém o
+  `StandardScaler`/`TargetEncoder` junto com o classificador — nenhum dos 3
+  deploys reimplementa encoding manualmente. Isso evita *training/serving
+  skew*: se o pré-processamento fosse reescrito em cada ambiente, qualquer
+  pequena diferença de implementação faria o modelo receber dados fora da
+  distribuição que aprendeu, gerando previsões erradas sem erro aparente.
+- **Versões de bibliotecas fixadas exatamente como no treino** (Python
+  3.10.18, scikit-learn 1.7.1, lightgbm 4.6.0, pandas 2.2.3, numpy 2.2.6,
+  joblib 1.5.1) — divergência causa falha silenciosa apenas na hora do
+  `joblib.load`, já em produção.
+- **`joblib.load` sempre no escopo do módulo**, carregado uma única vez na
+  inicialização — nunca a cada requisição.
+- **Configuração via ambiente** (`.env`, `$PORT`, `API_URL`), nunca
+  hardcoded no código.
+
+---
+
+## Notebook de modelagem
+
+O modelo foi construído em notebook, seguindo (resumo — detalhes completos
+no notebook):
+
+| Etapa | O que faz |
+|---|---|
+| Split (holdout) | 20% dos dados isolados desde o início, nunca tocados até a validação final |
+| EDA | Auditoria de tipos/missing, sweetviz, sem uso para seleção de features |
+| Comparação de baselines | Regressão Logística, HistGradientBoosting, MLP — venceu Regressão Logística |
+| Comparação de encoders | TargetEncoder, OneHotEncoder, OrdinalEncoder — empate por baixa cardinalidade |
+| Tuning | RandomizedSearchCV (20 combinações, 5 folds) |
+| Threshold | Testado de 0.3 a 0.7 — não afeta ROC AUC/log loss, só precision/recall/F1 |
+| Validação final | Re-treino em treino+teste, avaliado no holdout intocado |
+| Exportação | Pipeline completo salvo via joblib, com sanity check (`np.allclose`) pós-recarga |
+| Feature selection (extra) | DropConstantFeatures → SmartCorrelatedSelection → RecursiveFeatureElimination |
+
+> **Nota em aberto:** o notebook de modelagem usa `HistGradientBoostingClassifier`
+> como modelo final tunado, enquanto o `.pkl` em produção usa `LGBMClassifier`
+> (LightGBM). Divergência ainda não confirmada com o professor — não assumida
+> como erro.
+
+---
+
+## Deploy 1: Batch Agendado (Databricks)
+
+Job diário que lê a tabela `consumer_shopping_input` no Postgres, roda
+`predict` com o modelo carregado uma única vez no escopo do módulo, e grava
+o resultado de volta em `shopping_preference_predictions`.
+
+### Trade-off: prototipagem local vs. produção no Databricks
+
+O código (`generate_data.py`, `inference.py`) foi prototipado localmente no
+VS Code antes de migrar para notebooks no Databricks — uma mudança que vai
+além do editor:
+
+| | VS Code (local) | Databricks (produção) |
+|---|---|---|
+| Onde executa | Máquina local, `.venv` | Cluster remoto gerenciado |
+| Configuração/segredos | `.env` + `python-dotenv` | Databricks Secrets (recomendado) |
+| Execução | Script linear | Notebook, executado como job agendado |
+| Acesso ao Postgres | Driver direto (`psycopg2`) | Leitura via Spark (`spark.read.format("postgresql")`) |
+
+**Por que o acesso ao banco muda para Spark:** usar `psycopg2` diretamente
+no ambiente Serverless do Databricks causa falha de baixo nível (`SIGABRT`,
+sem traceback útil) — o runtime serverless não oferece o mesmo ambiente de
+sistema que uma máquina local. A correção foi usar a leitura nativa do Spark.
+
+**Sobre o `.env`:** por simplicidade didática, o conteúdo foi colado
+diretamente numa célula do notebook durante a aula — funcional para estudo,
+mas não recomendado em produção real, onde o ideal é usar Databricks Secrets.
+
+---
+
+## Deploy 2: API + Interface em Container (Docker → Render)
+
+FastAPI serve o modelo via endpoint `/predict`; Streamlit consome essa API
+via HTTP, com interface dividida em 3 seções (Perfil, Consumo, Preferências),
+totalizando os 24 campos do modelo. Empacotado numa única imagem Docker
+(`python:3.10-slim`), publicada no Render.
+
+### Imprevisto: porta fixa vs. porta dinâmica do Render
+
+Primeira tentativa de deploy resultou em "Not Found" ao acessar a URL.
+**Causa raiz:** o `Dockerfile` fixava a porta do Streamlit em `8501`, mas o
+Render atribui a porta via variável de ambiente `$PORT` e só roteia tráfego
+externo para ela — se o processo não escuta na porta que a plataforma
+espera, a requisição nunca chega. Corrigido trocando a porta fixa por
+`${PORT}` no `CMD` do Dockerfile.
+
+### Imprevisto: `libgomp.so.1` ausente na imagem slim
+
+O LightGBM depende da biblioteca OpenMP, não incluída na imagem
+`python:3.10-slim` por padrão — resolvido instalando `libgomp1` via
+`apt-get` no Dockerfile antes da instalação das dependências Python.
+
+---
+
+## Deploy 3: Serverless (Azure Functions) — tentativa documentada
+
+Diferente dos Deploys 1 e 2, este não foi validado em produção.
+
+### O que era pretendido
+
+Reaproveitar a API do Deploy 2 via `AsgiFunctionApp`, com foco em medir e
+discutir **cold start** em ambientes serverless.
+
+### Onde travou
+
+Duas restrições em cascata, específicas de contas trial do Azure:
+
+1. **Flex Consumption não é suportado em contas trial** — erro explícito da
+   plataforma: *"Free trial subscription is not supported for Flex
+   Consumption."*
+2. O plano alternativo (**Consumption**) disponível fixa o sistema
+   operacional como **Windows**, e Azure Functions com runtime **Python só é
+   suportado em Linux** — sem opção de trocar o SO nesse plano, Python nunca
+   aparece disponível no Runtime Stack.
+
+### Conclusão
+
+Código adaptado e preparado (`function_app.py`, `host.json`), mas a
+validação em ambiente real depende de uma assinatura paga, fora do escopo
+deste projeto de estudo com trial de prazo fixo.
+
+---
+
+## Tabela comparativa
+
+| Critério | Batch (Databricks) | API (Docker/Render) | Serverless (Azure Functions) |
+|---|---|---|---|
+| Latência | Alta (agendado, não sob demanda) | Baixa (segundos) | Variável (cold start relevante) |
+| Custo em ociosidade | Cluster sob demanda | Grátis, "dorme" após 15 min | Pay-per-execution (teórico — não validado) |
+| Complexidade operacional | Média (orquestração de job) | Baixa (um container) | Baixa a média (teórico) |
+| Quando usar | Grandes volumes, sem urgência | Uso interativo, tempo real | Tráfego esparso/imprevisível |
+
+*(Preencher com métricas reais medidas, se disponíveis, antes da publicação final)*
+
+---
+
+## Trade-offs descobertos na prática
+
+<!-- Espaço para você adicionar reflexões próprias, além dos imprevistos já documentados acima -->
+
+---
+
+## Como rodar localmente
+
+```bash
+# Deploy 2 — API + Interface
+cd 02_deploy_api_container
+docker build -t shopping-preference .
+docker run --rm -p 8000:8000 -p 8501:8501 shopping-preference
+```
+
+---
+
+## Stack
+
+Python 3.10 · scikit-learn · LightGBM · FastAPI · Streamlit · Docker ·
+PostgreSQL · Databricks/Spark · Render
