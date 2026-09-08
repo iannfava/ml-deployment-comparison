@@ -5,10 +5,15 @@ dados), com o mesmo modelo de Machine Learning implantado de 3 formas
 diferentes — batch agendado, API containerizada e serverless — para comparar
 arquiteturas de deploy na prática.
 
-🔗 **[Testar a aplicação ao vivo](https://deployml-onpremise.onrender.com)**
+🔗 **[Testar o Deploy 2 (API + Interface) ao vivo](https://deployml-onpremise.onrender.com)**
 
 > ⚠️ Hospedado no plano gratuito do Render — a primeira requisição pode levar
 > até 1 minuto (cold start). Aguarde o carregamento.
+>
+> Este é o único dos 3 deploys com uma URL pública interativa — o Deploy 1
+> (batch) roda como job agendado sem interface web, e o Deploy 3 (serverless)
+> não foi validado em produção (ver seção correspondente).
+
 
 <!-- Espaço para GIF/print da interface em uso -->
 <!-- ![demo](caminho/para/gif-ou-print.gif) -->
