@@ -27,7 +27,7 @@ diferentes, cada uma resolvendo um problema de negócio distinto:
 
 | Deploy | Cenário de uso | Status |
 |---|---|---|
-| **1. Batch (Databricks)** | Previsão diária em massa, sem necessidade de resposta imediata | 🟡 Parcial |
+| **1. Batch (Databricks)** | Previsão diária em massa, sem necessidade de resposta imediata | ✅ Completo |
 | **2. API + Interface (Docker → Render)** | Uso interativo, um cliente por vez, resposta em tempo real | ✅ Completo |
 | **3. Serverless (Azure Functions)** | Picos de uso irregulares, otimização de custo em ociosidade | ⬜ Não validado (ver seção) |
 
@@ -92,11 +92,28 @@ no notebook):
 
 ---
 
-## Deploy 1: Batch Agendado (Databricks)
+## Deploy 1: Batch Agendado (Databricks) ✅
 
 Job diário que lê a tabela `consumer_shopping_input` no Postgres, roda
 `predict` com o modelo carregado uma única vez no escopo do módulo, e grava
 o resultado de volta em `shopping_preference_predictions`.
+
+**Validado com dados reais:** 157.100 registros processados em lote
+(`batch_id: batch_20260904_174632`), com `prediction`, `label` e
+`probability_online` coerentes entre si — probabilidades próximas de 1
+para os classificados como "Online" e próximas de 0 para "Store".
+
+```sql
+SELECT * FROM shopping_preference_predictions LIMIT 5;
+```
+
+| customer_id | batch_id | prediction | label | probability_online |
+|---|---|---|---|---|
+| c243005b-... | batch_20260904_174632 | 1 | Online | 0.9534 |
+| ae63293a-... | batch_20260904_174632 | 1 | Online | 0.9999 |
+| 3d0d57cd-... | batch_20260904_174632 | 1 | Online | 0.9998 |
+| da5d8aba-... | batch_20260904_174632 | 0 | Store | 0.3376 |
+| 6288f6d8-... | batch_20260904_174632 | 0 | Store | 0.0000000002 |
 
 ### Trade-off: prototipagem local vs. produção no Databricks
 
@@ -119,9 +136,6 @@ sistema que uma máquina local. A correção foi usar a leitura nativa do Spark.
 **Sobre o `.env`:** por simplicidade didática, o conteúdo foi colado
 diretamente numa célula do notebook durante a aula — funcional para estudo,
 mas não recomendado em produção real, onde o ideal é usar Databricks Secrets.
-
----
-
 ## Deploy 2: API + Interface em Container (Docker → Render)
 
 FastAPI serve o modelo via endpoint `/predict`; Streamlit consome essa API
