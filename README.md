@@ -12,9 +12,9 @@ arquiteturas de deploy na prática.
 >
 > Este é o único dos 3 deploys com uma URL pública interativa — o Deploy 1
 > (batch) roda como job agendado sem interface web, e o Deploy 3 (serverless)
-> não foi validado em produção (ver seção correspondente).
+> não foi implementado neste projeto (ver seção correspondente).
 
-`[PRINT 1 — PRIORITÁRIO: Interface Streamlit do Deploy 2 em uso, mostrando as 3 seções (Perfil, Consumo, Preferências) preenchidas e uma previsão real retornada]`
+![Interface do Deploy 2 em uso](docs/images/deploy2-interface.png)
 
 ---
 
@@ -32,13 +32,13 @@ diferentes, cada uma resolvendo um problema de negócio distinto:
 |---|---|---|
 | **1. Batch (Databricks)** | Previsão diária em massa, sem necessidade de resposta imediata | ✅ Completo |
 | **2. API + Interface (Docker → Render)** | Uso interativo, um cliente por vez, resposta em tempo real | ✅ Completo |
-| **3. Serverless (Azure Functions)** | Picos de uso irregulares, otimização de custo em ociosidade | ⬜ Não validado (ver seção) |
+| **3. Serverless (Azure Functions)** | Picos de uso irregulares, otimização de custo em ociosidade | ⬜ Não implementado (ver seção) |
 
-![Diagrama: um modelo, três arquiteturas de deploy](docs/images/diagrama-arquiteturas.svg)
+![Diagrama: um modelo, duas arquiteturas de deploy implementadas](docs/images/diagrama-arquiteturas.svg)
 
 ---
 
-## Por que 3 formas de deploy do mesmo modelo?
+## Por que múltiplas formas de deploy do mesmo modelo?
 
 Cada abordagem resolve um problema de negócio diferente — não existe "a
 melhor forma de fazer deploy de ML", existe a forma certa pra cada contexto:
@@ -51,13 +51,15 @@ melhor forma de fazer deploy de ML", existe a forma certa pra cada contexto:
   de uma resposta imediata, unitária, com baixa latência.
 - **Serverless** é ideal quando o tráfego é imprevisível ou esparso — paga-se
   apenas pelo tempo de execução, sem manter infraestrutura ociosa ligada.
+  Não implementado aqui (ver seção do Deploy 3), mas o raciocínio de quando
+  usar continua válido.
 
 ---
 
-## Pontos técnicos que se repetem nos 3 deploys
+## Pontos técnicos que se repetem nos deploys
 
 - **Pré-processamento vive dentro do `.pkl`.** O pipeline salvo contém o
-  `StandardScaler`/`TargetEncoder` junto com o classificador — nenhum dos 3
+  `StandardScaler`/`TargetEncoder` junto com o classificador — nenhum dos
   deploys reimplementa encoding manualmente. Isso evita *training/serving
   skew*: se o pré-processamento fosse reescrito em cada ambiente, qualquer
   pequena diferença de implementação faria o modelo receber dados fora da
@@ -90,23 +92,38 @@ no notebook):
 | Exportação | Pipeline completo salvo via joblib, com sanity check (`np.allclose`) pós-recarga |
 | Feature selection (extra) | DropConstantFeatures → SmartCorrelatedSelection → RecursiveFeatureElimination |
 
-> **Nota em aberto:** o notebook de modelagem usa `HistGradientBoostingClassifier`
-> como modelo final tunado, enquanto o `.pkl` em produção usa `LGBMClassifier`
-> (LightGBM). Divergência ainda não confirmada com o professor — não assumida
-> como erro.
+Dois classificadores foram comparados durante a modelagem: o modelo em
+produção usa **LightGBM**; o notebook de referência (`00_modelagem/`) usa
+**HistGradientBoostingClassifier**. Ambos os artefatos `.pkl` estão
+preservados no repositório — ver [`models/README.md`](models/README.md)
+para o detalhamento da comparação.
 
 ---
 
 ## Deploy 1: Batch Agendado (Databricks) ✅
 
-Job diário que lê a tabela `consumer_shopping_input` no Postgres, roda
-`predict` com o modelo carregado uma única vez no escopo do módulo, e grava
-o resultado de volta em `shopping_preference_predictions`.
+Job que lê a tabela `consumer_shopping_input` no Postgres, roda `predict`
+com o modelo carregado uma única vez no escopo do módulo, e grava o
+resultado de volta em `shopping_preference_predictions`.
 
 **Validado com dados reais:** 157.100 registros processados em lote
 (`batch_id: batch_20260904_174632`), com `prediction`, `label` e
 `probability_online` coerentes entre si — probabilidades próximas de 1
 para os classificados como "Online" e próximas de 0 para "Store".
+
+Setup do notebook — conexão via variáveis de ambiente (nenhuma credencial
+exposta no código) e query com filtro de idempotência
+(`WHERE p.customer_id IS NULL`), que evita reprocessar clientes já
+pontuados em execuções futuras:
+
+![Setup do notebook de inferência](docs/images/deploy1-notebook-setup.png)
+
+Trecho final — carregamento do modelo, predição e gravação de volta no
+Postgres via Spark:
+
+![Pipeline de inferência](docs/images/deploy1-notebook-inferencia.png)
+
+Consulta confirmando os dados reais gravados na tabela de resultados:
 
 ```sql
 SELECT * FROM shopping_preference_predictions LIMIT 5;
@@ -120,7 +137,7 @@ SELECT * FROM shopping_preference_predictions LIMIT 5;
 | da5d8aba-... | batch_20260904_174632 | 0 | Store | 0.3376 |
 | 6288f6d8-... | batch_20260904_174632 | 0 | Store | 0.0000000002 |
 
-`[PRINT 2 — OPCIONAL: Job do Databricks concluído com sucesso, ou a query acima rodando no Postgres com resultado real na tela]`
+![Query no Postgres via DBeaver](docs/images/deploy1-query-postgres.png)
 
 ### Trade-off: prototipagem local vs. produção no Databricks
 
@@ -132,7 +149,7 @@ além do editor:
 |---|---|---|
 | Onde executa | Máquina local, `.venv` | Cluster remoto gerenciado |
 | Configuração/segredos | `.env` + `python-dotenv` | Databricks Secrets (recomendado) |
-| Execução | Script linear | Notebook, executado como job agendado |
+| Execução | Script linear | Notebook, executado como job |
 | Acesso ao Postgres | Driver direto (`psycopg2`) | Leitura via Spark (`spark.read.format("postgresql")`) |
 
 **Por que o acesso ao banco muda para Spark:** usar `psycopg2` diretamente
@@ -144,12 +161,22 @@ sistema que uma máquina local. A correção foi usar a leitura nativa do Spark.
 diretamente numa célula do notebook durante a aula — funcional para estudo,
 mas não recomendado em produção real, onde o ideal é usar Databricks Secrets.
 
+---
+
 ## Deploy 2: API + Interface em Container (Docker → Render)
 
 FastAPI serve o modelo via endpoint `/predict`; Streamlit consome essa API
 via HTTP, com interface dividida em 3 seções (Perfil, Consumo, Preferências),
 totalizando os 24 campos do modelo. Empacotado numa única imagem Docker
 (`python:3.10-slim`), publicada no Render.
+
+Formulário preenchido com um perfil de teste:
+
+![Formulário preenchido](docs/images/deploy2-interface.png)
+
+Resultado retornado pela API:
+
+![Resultado da previsão](docs/images/deploy2-resultado.png)
 
 ### Imprevisto: porta fixa vs. porta dinâmica do Render
 
@@ -166,55 +193,46 @@ O LightGBM depende da biblioteca OpenMP, não incluída na imagem
 `python:3.10-slim` por padrão — resolvido instalando `libgomp1` via
 `apt-get` no Dockerfile antes da instalação das dependências Python.
 
-`[PRINT 3 — OPCIONAL: log de build/deploy bem-sucedido no Render]`
+Histórico de deploys no Render — inclui um deploy que falhou (branch
+desatualizada logo após a reorganização do repositório em uma estrutura
+única para os 3 deploys), corrigido no deploy seguinte:
+
+![Histórico de deploys no Render](docs/images/deploy2-render-deploy.png)
 
 ---
 
-## Deploy 3: Serverless (Azure Functions) — tentativa documentada
+## Sobre o Deploy 3 (Serverless)
 
-Diferente dos Deploys 1 e 2, este não foi validado em produção.
+Esta versão originalmente incluía uma terceira abordagem via Azure
+Functions, com foco em medir e discutir **cold start** em ambientes
+serverless. Optei por não implementá-la neste repositório: já mantenho um
+projeto dedicado inteiramente ao Azure, e reproduzir a mesma plataforma
+aqui seria redundante.
 
-### O que era pretendido
-
-Reaproveitar a API do Deploy 2 via `AsgiFunctionApp`, com foco em medir e
-discutir **cold start** em ambientes serverless.
-
-### Onde travou
-
-Duas restrições em cascata, específicas de contas trial do Azure:
-
-1. **Flex Consumption não é suportado em contas trial** — erro explícito da
-   plataforma: *"Free trial subscription is not supported for Flex
-   Consumption."*
-2. O plano alternativo (**Consumption**) disponível fixa o sistema
-   operacional como **Windows**, e Azure Functions com runtime **Python só é
-   suportado em Linux** — sem opção de trocar o SO nesse plano, Python nunca
-   aparece disponível no Runtime Stack.
-
-### Conclusão
-
-Código adaptado e preparado (`function_app.py`, `host.json`), mas a
-validação em ambiente real depende de uma assinatura paga, fora do escopo
-deste projeto de estudo com trial de prazo fixo.
+Durante uma tentativa inicial de provisionamento, esbarrei em duas
+restrições em cascata específicas de contas trial do Azure — o plano Flex
+Consumption não é suportado em contas gratuitas, e o plano alternativo
+disponível fixa o sistema operacional como Windows, que não suporta o
+runtime Python em Azure Functions (suportado apenas em Linux). A
+arquitetura pretendida (adaptação da API via `AsgiFunctionApp`) está
+descrita conceitualmente, mas não foi validada em produção.
 
 ---
 
 ## Tabela comparativa
 
-| Critério | Batch (Databricks) | API (Docker/Render) | Serverless (Azure Functions) |
-|---|---|---|---|
-| Latência | Alta (agendado, não sob demanda) | Baixa (segundos) | Variável (cold start relevante) |
-| Custo em ociosidade | Cluster sob demanda | Grátis, "dorme" após 15 min | Pay-per-execution (teórico — não validado) |
-| Complexidade operacional | Média (orquestração de job) | Baixa (um container) | Baixa a média (teórico) |
-| Quando usar | Grandes volumes, sem urgência | Uso interativo, tempo real | Tráfego esparso/imprevisível |
-
-*(Preencher com métricas reais medidas, se disponíveis, antes da publicação final)*
+| Critério | Batch (Databricks) | API (Docker/Render) |
+|---|---|---|
+| Latência | Alta (agendado, não sob demanda) | Baixa (segundos) |
+| Custo em ociosidade | Cluster sob demanda | Grátis, "dorme" após 15 min |
+| Complexidade operacional | Média (orquestração de job) | Baixa (um container) |
+| Quando usar | Grandes volumes, sem urgência | Uso interativo, tempo real |
 
 ---
 
 ## Trade-offs descobertos na prática
 
-<!-- Espaço para você adicionar reflexões próprias, além dos imprevistos já documentados acima -->
+<!-- Espaço para reflexões próprias, além dos imprevistos já documentados acima -->
 
 ---
 
