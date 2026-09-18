@@ -1,8 +1,8 @@
-# Deploy de Modelo de ML — 3 Abordagens
+# Deploy de Modelo de ML — 2 Abordagens
 
 Reprodução de um projeto de curso (live com engenheiro de dados + cientista de
-dados), com o mesmo modelo de Machine Learning implantado de 3 formas
-diferentes — batch agendado, API containerizada e serverless — para comparar
+dados), com o mesmo modelo de Machine Learning implantado de 2 formas
+diferentes — batch agendado e API containerizada — para comparar
 arquiteturas de deploy na prática.
 
 🔗 **[Testar o Deploy 2 (API + Interface) ao vivo](https://deployml-onpremise.onrender.com)**
@@ -10,9 +10,8 @@ arquiteturas de deploy na prática.
 > ⚠️ Hospedado no plano gratuito do Render — a primeira requisição pode levar
 > até 1 minuto (cold start). Aguarde o carregamento.
 >
-> Este é o único dos 3 deploys com uma URL pública interativa — o Deploy 1
-> (batch) roda como job agendado sem interface web, e o Deploy 3 (serverless)
-> não foi implementado neste projeto (ver seção correspondente).
+> Este é o único dos 2 deploys com uma URL pública interativa — o Deploy 1
+> (batch) roda como job agendado, sem interface web.
 
 ![Interface do Deploy 2 em uso](docs/images/deploy2-interface.png)
 
@@ -25,20 +24,19 @@ Um modelo Scikit-learn (Pipeline com `ColumnTransformer` + `TargetEncoder` +
 **Loja física**, a partir de 24 variáveis comportamentais e demográficas.
 
 Ter um modelo treinado não é o mesmo que ter um modelo **em produção**. Este
-projeto explora essa distância, implantando o mesmo `.pkl` de 3 formas
+projeto explora essa distância, implantando o mesmo `.pkl` de 2 formas
 diferentes, cada uma resolvendo um problema de negócio distinto:
 
 | Deploy | Cenário de uso | Status |
 |---|---|---|
 | **1. Batch (Databricks)** | Previsão diária em massa, sem necessidade de resposta imediata | ✅ Completo |
 | **2. API + Interface (Docker → Render)** | Uso interativo, um cliente por vez, resposta em tempo real | ✅ Completo |
-| **3. Serverless (Azure Functions)** | Picos de uso irregulares, otimização de custo em ociosidade | ⬜ Não implementado (ver seção) |
 
-![Diagrama: um modelo, duas arquiteturas de deploy implementadas](docs/images/diagrama-arquiteturas.svg)
+![Diagrama: um modelo, duas arquiteturas de deploy](docs/images/diagrama-arquiteturas.svg)
 
 ---
 
-## Por que múltiplas formas de deploy do mesmo modelo?
+## Por que 2 formas de deploy do mesmo modelo?
 
 Cada abordagem resolve um problema de negócio diferente — não existe "a
 melhor forma de fazer deploy de ML", existe a forma certa pra cada contexto:
@@ -49,14 +47,10 @@ melhor forma de fazer deploy de ML", existe a forma certa pra cada contexto:
   vez.
 - **API + Interface** é ideal quando alguém (humano ou outro sistema) precisa
   de uma resposta imediata, unitária, com baixa latência.
-- **Serverless** é ideal quando o tráfego é imprevisível ou esparso — paga-se
-  apenas pelo tempo de execução, sem manter infraestrutura ociosa ligada.
-  Não implementado aqui (ver seção do Deploy 3), mas o raciocínio de quando
-  usar continua válido.
 
 ---
 
-## Pontos técnicos que se repetem nos deploys
+## Pontos técnicos que se repetem nos 2 deploys
 
 - **Pré-processamento vive dentro do `.pkl`.** O pipeline salvo contém o
   `StandardScaler`/`TargetEncoder` junto com o classificador — nenhum dos
@@ -126,16 +120,21 @@ Postgres via Spark:
 Consulta confirmando os dados reais gravados na tabela de resultados:
 
 ```sql
-SELECT * FROM shopping_preference_predictions LIMIT 5;
+SELECT * FROM shopping_preference_predictions LIMIT 10;
 ```
 
 | customer_id | batch_id | prediction | label | probability_online |
 |---|---|---|---|---|
-| c243005b-... | batch_20260904_174632 | 1 | Online | 0.9534 |
-| ae63293a-... | batch_20260904_174632 | 1 | Online | 0.9999 |
-| 3d0d57cd-... | batch_20260904_174632 | 1 | Online | 0.9998 |
-| da5d8aba-... | batch_20260904_174632 | 0 | Store | 0.3376 |
-| 6288f6d8-... | batch_20260904_174632 | 0 | Store | 0.0000000002 |
+| c243005b-... | batch_20260904_174632 | 1 | Online | 0.9534041 |
+| ae63293a-... | batch_20260904_174632 | 1 | Online | 0.999998 |
+| 3d0d57cd-... | batch_20260904_174632 | 1 | Online | 0.9998865 |
+| da5d8aba-... | batch_20260904_174632 | 0 | Store | 0.33768138 |
+| 6288f6d8-... | batch_20260904_174632 | 0 | Store | 0.000000002 |
+| 4a0c74e1-... | batch_20260904_174632 | 0 | Store | 0 |
+| f9a2b79d-... | batch_20260904_174632 | 0 | Store | 0.000000447 |
+| e228d624-... | batch_20260904_174632 | 0 | Store | 0.000000111 |
+| da3d5d73-... | batch_20260904_174632 | 1 | Online | 0.883311 |
+| 9a4ca7a5-... | batch_20260904_174632 | 1 | Online | 0.8880869 |
 
 ![Query no Postgres via DBeaver](docs/images/deploy1-query-postgres.png)
 
@@ -195,27 +194,9 @@ O LightGBM depende da biblioteca OpenMP, não incluída na imagem
 
 Histórico de deploys no Render — inclui um deploy que falhou (branch
 desatualizada logo após a reorganização do repositório em uma estrutura
-única para os 3 deploys), corrigido no deploy seguinte:
+única para os deploys), corrigido no deploy seguinte:
 
 ![Histórico de deploys no Render](docs/images/deploy2-render-deploy.png)
-
----
-
-## Sobre o Deploy 3 (Serverless)
-
-Esta versão originalmente incluía uma terceira abordagem via Azure
-Functions, com foco em medir e discutir **cold start** em ambientes
-serverless. Optei por não implementá-la neste repositório: já mantenho um
-projeto dedicado inteiramente ao Azure, e reproduzir a mesma plataforma
-aqui seria redundante.
-
-Durante uma tentativa inicial de provisionamento, esbarrei em duas
-restrições em cascata específicas de contas trial do Azure — o plano Flex
-Consumption não é suportado em contas gratuitas, e o plano alternativo
-disponível fixa o sistema operacional como Windows, que não suporta o
-runtime Python em Azure Functions (suportado apenas em Linux). A
-arquitetura pretendida (adaptação da API via `AsgiFunctionApp`) está
-descrita conceitualmente, mas não foi validada em produção.
 
 ---
 
@@ -232,7 +213,7 @@ descrita conceitualmente, mas não foi validada em produção.
 
 ## Trade-offs descobertos na prática
 
-<!-- Espaço para reflexões próprias, além dos imprevistos já documentados acima -->
+<!-- Espaço para reflexões próprias sobre os Deploys 1 e 2, além dos imprevistos já documentados acima -->
 
 ---
 
