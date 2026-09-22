@@ -1,8 +1,7 @@
-# Deploy de Modelo de ML — 2 Abordagens
+# Deploy de Modelo de ML : 2 Abordagens
 
-Reprodução de um projeto de curso (live com engenheiro de dados + cientista de
-dados), com o mesmo modelo de Machine Learning implantado de 2 formas
-diferentes — batch agendado e API containerizada — para comparar
+Reprodução de um projeto de Machine Learning implantado de 2 formas
+diferentes: batch agendado e API containerizada, para comparar
 arquiteturas de deploy na prática.
 
 🔗 **[Testar o Deploy 2 (API + Interface) ao vivo](https://deployml-onpremise.onrender.com)**
