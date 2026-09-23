@@ -1,77 +1,83 @@
-# Deploy de Modelo de ML : 2 Abordagens
+# Deploy de Modelo de ML — 2 Abordagens
 
-Reprodução de um projeto de Machine Learning implantado de 2 formas
-diferentes: batch agendado e API containerizada, para comparar
-arquiteturas de deploy na prática.
+Um modelo de Machine Learning, implantado de 2 formas diferentes — batch
+agendado e API containerizada — para comparar arquiteturas de deploy na
+prática.
 
 🔗 **[Testar o Deploy 2 (API + Interface) ao vivo](https://deployml-onpremise.onrender.com)**
-
-> ⚠️ Hospedado no plano gratuito do Render — a primeira requisição pode levar
-> até 1 minuto (cold start). Aguarde o carregamento.
->
-> Este é o único dos 2 deploys com uma URL pública interativa — o Deploy 1
-> (batch) roda como job agendado, sem interface web.
+*(plano gratuito do Render — primeira requisição pode levar até 1 minuto, cold start)*
 
 ![Interface do Deploy 2 em uso](docs/images/deploy2-interface.png)
 
 ---
 
-## O problema
+## 1. Problema
 
-Um modelo Scikit-learn (Pipeline com `ColumnTransformer` + `TargetEncoder` +
+Um pipeline Scikit-learn (`ColumnTransformer` + `TargetEncoder` +
 `LGBMClassifier`) prevê se um cliente tem perfil de compra **Online** ou em
 **Loja física**, a partir de 24 variáveis comportamentais e demográficas.
 
-Ter um modelo treinado não é o mesmo que ter um modelo **em produção**. Este
-projeto explora essa distância, implantando o mesmo `.pkl` de 2 formas
-diferentes, cada uma resolvendo um problema de negócio distinto:
+Ter um modelo treinado não é o mesmo que ter um modelo **em produção**. O
+mesmo `.pkl` foi implantado de 2 formas, cada uma resolvendo um cenário de
+negócio distinto:
 
 | Deploy | Cenário de uso | Status |
 |---|---|---|
 | **1. Batch (Databricks)** | Previsão diária em massa, sem necessidade de resposta imediata | ✅ Completo |
 | **2. API + Interface (Docker → Render)** | Uso interativo, um cliente por vez, resposta em tempo real | ✅ Completo |
 
+---
+
+## 2. Arquitetura
+
 ![Diagrama: um modelo, duas arquiteturas de deploy](docs/images/diagrama-arquiteturas.svg)
 
----
+**Por que 2 formas de deploy do mesmo modelo?** Não existe "a melhor forma
+de fazer deploy de ML" — existe a forma certa pra cada contexto:
 
-## Por que 2 formas de deploy do mesmo modelo?
+- **Batch** processa grande volume de uma vez, sem urgência de resposta —
+  ideal quando a decisão pode esperar até o próximo ciclo agendado.
+- **API + Interface** responde a um cliente por vez, com baixa latência —
+  ideal quando alguém (humano ou sistema) precisa da previsão na hora.
 
-Cada abordagem resolve um problema de negócio diferente — não existe "a
-melhor forma de fazer deploy de ML", existe a forma certa pra cada contexto:
+| Critério | Batch (Databricks) | API (Docker/Render) |
+|---|---|---|
+| Latência | Alta (agendado, não sob demanda) | Baixa (segundos) |
+| Custo em ociosidade | Cluster sob demanda | Grátis, "dorme" após 15 min |
+| Complexidade operacional | Média (orquestração de job) | Baixa (um container) |
+| Quando usar | Grandes volumes, sem urgência | Uso interativo, tempo real |
 
-- **Batch** é ideal quando a decisão pode esperar (ex: recalcular a
-  probabilidade de todos os clientes uma vez por dia) e o volume de dados é
-  grande — processar tudo de uma vez é mais eficiente que uma predição por
-  vez.
-- **API + Interface** é ideal quando alguém (humano ou outro sistema) precisa
-  de uma resposta imediata, unitária, com baixa latência.
+**Decisões que se repetem nos 2 deploys, por design:**
 
----
-
-## Pontos técnicos que se repetem nos 2 deploys
-
-- **Pré-processamento vive dentro do `.pkl`.** O pipeline salvo contém o
-  `StandardScaler`/`TargetEncoder` junto com o classificador — nenhum dos
-  deploys reimplementa encoding manualmente. Isso evita *training/serving
-  skew*: se o pré-processamento fosse reescrito em cada ambiente, qualquer
-  pequena diferença de implementação faria o modelo receber dados fora da
-  distribuição que aprendeu, gerando previsões erradas sem erro aparente.
-- **Versões de bibliotecas fixadas exatamente como no treino** (Python
-  3.10.18, scikit-learn 1.7.1, lightgbm 4.6.0, pandas 2.2.3, numpy 2.2.6,
-  joblib 1.5.1) — divergência causa falha silenciosa apenas na hora do
-  `joblib.load`, já em produção.
-- **`joblib.load` sempre no escopo do módulo**, carregado uma única vez na
-  inicialização — nunca a cada requisição.
+- **Pré-processamento vive dentro do `.pkl`** — o pipeline salvo contém o
+  `StandardScaler`/`TargetEncoder` junto com o classificador, então nenhum
+  deploy reimplementa encoding manualmente. Evita *training/serving skew*:
+  qualquer divergência de implementação do pré-processamento faria o modelo
+  receber dados fora da distribuição que aprendeu, gerando previsões
+  erradas sem erro aparente.
+- **Versões de bibliotecas fixadas** exatamente como no treino (Python
+  3.10.18, scikit-learn 1.7.1, lightgbm 4.6.0) — divergência causa falha
+  silenciosa só na hora do `joblib.load`, já em produção.
+- **`joblib.load` no escopo do módulo**, carregado uma única vez na
+  inicialização, nunca a cada requisição.
 - **Configuração via ambiente** (`.env`, `$PORT`, `API_URL`), nunca
   hardcoded no código.
 
 ---
 
-## Notebook de modelagem
+## 3. Stack
 
-O modelo foi construído em notebook, seguindo (resumo — detalhes completos
-no notebook):
+**Modelagem:** Python 3.10 · scikit-learn · LightGBM · pandas · sweetviz
+
+**Deploy 1 (Batch):** Databricks · Spark · PostgreSQL
+
+**Deploy 2 (API + Interface):** FastAPI · Streamlit · Docker · Render
+
+---
+
+## 4. Implementação
+
+### Modelagem
 
 | Etapa | O que faz |
 |---|---|
@@ -83,40 +89,20 @@ no notebook):
 | Threshold | Testado de 0.3 a 0.7 — não afeta ROC AUC/log loss, só precision/recall/F1 |
 | Validação final | Re-treino em treino+teste, avaliado no holdout intocado |
 | Exportação | Pipeline completo salvo via joblib, com sanity check (`np.allclose`) pós-recarga |
-| Feature selection (extra) | DropConstantFeatures → SmartCorrelatedSelection → RecursiveFeatureElimination |
 
-Dois classificadores foram comparados durante a modelagem: o modelo em
-produção usa **LightGBM**; o notebook de referência (`00_modelagem/`) usa
-**HistGradientBoostingClassifier**. Ambos os artefatos `.pkl` estão
-preservados no repositório — ver [`models/README.md`](models/README.md)
-para o detalhamento da comparação.
+Dois classificadores foram comparados: o modelo em produção usa
+**LightGBM**; o notebook de referência (`00_modelagem/`) usa
+**HistGradientBoostingClassifier**. Ambos os `.pkl` estão preservados no
+repositório — detalhamento em [`models/README.md`](models/README.md).
 
----
+### Deploy 1 — Batch Agendado (Databricks)
 
-## Deploy 1: Batch Agendado (Databricks) ✅
-
-Job que lê a tabela `consumer_shopping_input` no Postgres, roda `predict`
-com o modelo carregado uma única vez no escopo do módulo, e grava o
-resultado de volta em `shopping_preference_predictions`.
-
-**Validado com dados reais:** 157.100 registros processados em lote
-(`batch_id: batch_20260904_174632`), com `prediction`, `label` e
-`probability_online` coerentes entre si — probabilidades próximas de 1
-para os classificados como "Online" e próximas de 0 para "Store".
-
-Setup do notebook — conexão via variáveis de ambiente (nenhuma credencial
-exposta no código) e query com filtro de idempotência
-(`WHERE p.customer_id IS NULL`), que evita reprocessar clientes já
-pontuados em execuções futuras:
+Job que lê `consumer_shopping_input` no Postgres, roda `predict` com o
+modelo carregado uma vez no escopo do módulo, e grava o resultado em
+`shopping_preference_predictions`. **Validado com 157.100 registros reais.**
 
 ![Setup do notebook de inferência](docs/images/deploy1-notebook-setup.png)
-
-Trecho final — carregamento do modelo, predição e gravação de volta no
-Postgres via Spark:
-
 ![Pipeline de inferência](docs/images/deploy1-notebook-inferencia.png)
-
-Consulta confirmando os dados reais gravados na tabela de resultados:
 
 ```sql
 SELECT * FROM shopping_preference_predictions LIMIT 10;
@@ -137,97 +123,51 @@ SELECT * FROM shopping_preference_predictions LIMIT 10;
 
 ![Query no Postgres via DBeaver](docs/images/deploy1-query-postgres.png)
 
-### Trade-off: prototipagem local vs. produção no Databricks
-
-O código (`generate_data.py`, `inference.py`) foi prototipado localmente no
-VS Code antes de migrar para notebooks no Databricks — uma mudança que vai
-além do editor:
+**Trade-off — prototipagem local vs. produção no Databricks:**
 
 | | VS Code (local) | Databricks (produção) |
 |---|---|---|
 | Onde executa | Máquina local, `.venv` | Cluster remoto gerenciado |
-| Configuração/segredos | `.env` + `python-dotenv` | Databricks Secrets (recomendado) |
-| Execução | Script linear | Notebook, executado como job |
+| Segredos | `.env` + `python-dotenv` | Databricks Secrets (recomendado) |
 | Acesso ao Postgres | Driver direto (`psycopg2`) | Leitura via Spark (`spark.read.format("postgresql")`) |
 
-**Por que o acesso ao banco muda para Spark:** usar `psycopg2` diretamente
-no ambiente Serverless do Databricks causa falha de baixo nível (`SIGABRT`,
-sem traceback útil) — o runtime serverless não oferece o mesmo ambiente de
-sistema que uma máquina local. A correção foi usar a leitura nativa do Spark.
+Usar `psycopg2` direto no ambiente Serverless do Databricks causa falha de
+baixo nível (`SIGABRT`, sem traceback útil) — o runtime não oferece o mesmo
+ambiente de sistema de uma máquina local. Corrigido usando leitura nativa
+do Spark.
 
-**Sobre o `.env`:** por simplicidade didática, o conteúdo foi colado
-diretamente numa célula do notebook durante a aula — funcional para estudo,
-mas não recomendado em produção real, onde o ideal é usar Databricks Secrets.
+### Deploy 2 — API + Interface em Container (Docker → Render)
 
----
-
-## Deploy 2: API + Interface em Container (Docker → Render)
-
-FastAPI serve o modelo via endpoint `/predict`; Streamlit consome essa API
-via HTTP, com interface dividida em 3 seções (Perfil, Consumo, Preferências),
-totalizando os 24 campos do modelo. Empacotado numa única imagem Docker
+FastAPI serve o modelo via `/predict`; Streamlit consome essa API via HTTP,
+com os 24 campos organizados em 3 seções. Empacotado em uma imagem Docker
 (`python:3.10-slim`), publicada no Render.
-
-Formulário preenchido com um perfil de teste:
-
-![Formulário preenchido](docs/images/deploy2-interface.png)
-
-Resultado retornado pela API:
 
 ![Resultado da previsão](docs/images/deploy2-resultado.png)
 
-### Imprevisto: porta fixa vs. porta dinâmica do Render
+**Imprevisto — porta fixa vs. porta dinâmica do Render:** primeiro deploy
+resultou em "Not Found". Causa: o Dockerfile fixava a porta do Streamlit em
+`8501`, mas o Render atribui a porta via `$PORT` e só roteia tráfego para
+ela. Corrigido trocando a porta fixa por `${PORT}` no `CMD`.
 
-Primeira tentativa de deploy resultou em "Not Found" ao acessar a URL.
-**Causa raiz:** o `Dockerfile` fixava a porta do Streamlit em `8501`, mas o
-Render atribui a porta via variável de ambiente `$PORT` e só roteia tráfego
-externo para ela — se o processo não escuta na porta que a plataforma
-espera, a requisição nunca chega. Corrigido trocando a porta fixa por
-`${PORT}` no `CMD` do Dockerfile.
-
-### Imprevisto: `libgomp.so.1` ausente na imagem slim
-
-O LightGBM depende da biblioteca OpenMP, não incluída na imagem
-`python:3.10-slim` por padrão — resolvido instalando `libgomp1` via
-`apt-get` no Dockerfile antes da instalação das dependências Python.
-
-Histórico de deploys no Render — inclui um deploy que falhou (branch
-desatualizada logo após a reorganização do repositório em uma estrutura
-única para os deploys), corrigido no deploy seguinte:
+**Imprevisto — `libgomp.so.1` ausente na imagem slim:** o LightGBM depende
+de OpenMP, não incluído por padrão em `python:3.10-slim`. Resolvido
+instalando `libgomp1` via `apt-get` antes das dependências Python.
 
 ![Histórico de deploys no Render](docs/images/deploy2-render-deploy.png)
 
 ---
 
-## Tabela comparativa
+## 5. Resultados, aprendizados e próximos passos
 
-| Critério | Batch (Databricks) | API (Docker/Render) |
-|---|---|---|
-| Latência | Alta (agendado, não sob demanda) | Baixa (segundos) |
-| Custo em ociosidade | Cluster sob demanda | Grátis, "dorme" após 15 min |
-| Complexidade operacional | Média (orquestração de job) | Baixa (um container) |
-| Quando usar | Grandes volumes, sem urgência | Uso interativo, tempo real |
+**Resultados:**
+- Deploy 1 processou 157.100 registros reais em lote, sem erro
+- Deploy 2 está no ar publicamente, respondendo em tempo real
+- Mesmo `.pkl`, mesmo contrato de pré-processamento, dois padrões de
+  arquitetura diferentes — sem duplicar lógica de inferência
 
----
+**Aprendizados:**
 
-## Trade-offs descobertos na prática
+<!-- Espaço para reflexões próprias sobre os Deploys 1 e 2 -->
 
-<!-- Espaço para reflexões próprias sobre os Deploys 1 e 2, além dos imprevistos já documentados acima -->
-
----
-
-## Como rodar localmente
-
-```bash
-# Deploy 2 — API + Interface
-cd 02_deploy_api_container
-docker build -t shopping-preference .
-docker run --rm -p 8000:8000 -p 8501:8501 shopping-preference
-```
-
----
-
-## Stack
-
-Python 3.10 · scikit-learn · LightGBM · FastAPI · Streamlit · Docker ·
-PostgreSQL · Databricks/Spark · Render
+**Próximos passos:**
+- [ ] Preencher a seção de aprendizados acima
