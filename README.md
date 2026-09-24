@@ -1,11 +1,11 @@
-# Deploy de Modelo de ML — 2 Abordagens
+# Deploy de Modelo de ML : 2 Abordagens
 
-Um modelo de Machine Learning, implantado de 2 formas diferentes — batch
-agendado e API containerizada — para comparar arquiteturas de deploy na
+Um modelo de Machine Learning, implantado de 2 formas diferentes : batch
+agendado e API containerizada  para comparar arquiteturas de deploy na
 prática.
 
 🔗 **[Testar o Deploy 2 (API + Interface) ao vivo](https://deployml-onpremise.onrender.com)**
-*(plano gratuito do Render — primeira requisição pode levar até 1 minuto, cold start)*
+*(plano gratuito do Render - primeira requisição pode levar até 1 minuto, cold start)*
 
 ![Interface do Deploy 2 em uso](docs/images/deploy2-interface.png)
 
@@ -35,9 +35,9 @@ negócio distinto:
 **Por que 2 formas de deploy do mesmo modelo?** Não existe "a melhor forma
 de fazer deploy de ML" — existe a forma certa pra cada contexto:
 
-- **Batch** processa grande volume de uma vez, sem urgência de resposta —
+- **Batch** processa grande volume de uma vez, sem urgência de resposta :
   ideal quando a decisão pode esperar até o próximo ciclo agendado.
-- **API + Interface** responde a um cliente por vez, com baixa latência —
+- **API + Interface** responde a um cliente por vez, com baixa latência :
   ideal quando alguém (humano ou sistema) precisa da previsão na hora.
 
 | Critério | Batch (Databricks) | API (Docker/Render) |
@@ -56,7 +56,7 @@ de fazer deploy de ML" — existe a forma certa pra cada contexto:
   receber dados fora da distribuição que aprendeu, gerando previsões
   erradas sem erro aparente.
 - **Versões de bibliotecas fixadas** exatamente como no treino (Python
-  3.10.18, scikit-learn 1.7.1, lightgbm 4.6.0) — divergência causa falha
+  3.10.18, scikit-learn 1.7.1, lightgbm 4.6.0) : divergência causa falha
   silenciosa só na hora do `joblib.load`, já em produção.
 - **`joblib.load` no escopo do módulo**, carregado uma única vez na
   inicialização, nunca a cada requisição.
@@ -83,10 +83,10 @@ de fazer deploy de ML" — existe a forma certa pra cada contexto:
 |---|---|
 | Split (holdout) | 20% dos dados isolados desde o início, nunca tocados até a validação final |
 | EDA | Auditoria de tipos/missing, sweetviz, sem uso para seleção de features |
-| Comparação de baselines | Regressão Logística, HistGradientBoosting, MLP — venceu Regressão Logística |
-| Comparação de encoders | TargetEncoder, OneHotEncoder, OrdinalEncoder — empate por baixa cardinalidade |
+| Comparação de baselines | Regressão Logística, HistGradientBoosting, MLP : venceu Regressão Logística |
+| Comparação de encoders | TargetEncoder, OneHotEncoder, OrdinalEncoder : empate por baixa cardinalidade |
 | Tuning | RandomizedSearchCV (20 combinações, 5 folds) |
-| Threshold | Testado de 0.3 a 0.7 — não afeta ROC AUC/log loss, só precision/recall/F1 |
+| Threshold | Testado de 0.3 a 0.7 : não afeta ROC AUC/log loss, só precision/recall/F1 |
 | Validação final | Re-treino em treino+teste, avaliado no holdout intocado |
 | Exportação | Pipeline completo salvo via joblib, com sanity check (`np.allclose`) pós-recarga |
 
@@ -95,7 +95,7 @@ Dois classificadores foram comparados: o modelo em produção usa
 **HistGradientBoostingClassifier**. Ambos os `.pkl` estão preservados no
 repositório — detalhamento em [`models/README.md`](models/README.md).
 
-### Deploy 1 — Batch Agendado (Databricks)
+### Deploy 1: Batch Agendado (Databricks)
 
 Job que lê `consumer_shopping_input` no Postgres, roda `predict` com o
 modelo carregado uma vez no escopo do módulo, e grava o resultado em
@@ -123,7 +123,7 @@ SELECT * FROM shopping_preference_predictions LIMIT 10;
 
 ![Query no Postgres via DBeaver](docs/images/deploy1-query-postgres.png)
 
-**Trade-off — prototipagem local vs. produção no Databricks:**
+**Trade-off : prototipagem local vs. produção no Databricks:**
 
 | | VS Code (local) | Databricks (produção) |
 |---|---|---|
@@ -132,7 +132,7 @@ SELECT * FROM shopping_preference_predictions LIMIT 10;
 | Acesso ao Postgres | Driver direto (`psycopg2`) | Leitura via Spark (`spark.read.format("postgresql")`) |
 
 Usar `psycopg2` direto no ambiente Serverless do Databricks causa falha de
-baixo nível (`SIGABRT`, sem traceback útil) — o runtime não oferece o mesmo
+baixo nível (`SIGABRT`, sem traceback útil) - o runtime não oferece o mesmo
 ambiente de sistema de uma máquina local. Corrigido usando leitura nativa
 do Spark.
 
@@ -144,12 +144,12 @@ com os 24 campos organizados em 3 seções. Empacotado em uma imagem Docker
 
 ![Resultado da previsão](docs/images/deploy2-resultado.png)
 
-**Imprevisto — porta fixa vs. porta dinâmica do Render:** primeiro deploy
+**Imprevisto : porta fixa vs. porta dinâmica do Render:** primeiro deploy
 resultou em "Not Found". Causa: o Dockerfile fixava a porta do Streamlit em
 `8501`, mas o Render atribui a porta via `$PORT` e só roteia tráfego para
 ela. Corrigido trocando a porta fixa por `${PORT}` no `CMD`.
 
-**Imprevisto — `libgomp.so.1` ausente na imagem slim:** o LightGBM depende
+**Imprevisto : `libgomp.so.1` ausente na imagem slim:** o LightGBM depende
 de OpenMP, não incluído por padrão em `python:3.10-slim`. Resolvido
 instalando `libgomp1` via `apt-get` antes das dependências Python.
 
@@ -157,17 +157,11 @@ instalando `libgomp1` via `apt-get` antes das dependências Python.
 
 ---
 
-## 5. Resultados, aprendizados e próximos passos
+## 5. Resultados
 
 **Resultados:**
 - Deploy 1 processou 157.100 registros reais em lote, sem erro
 - Deploy 2 está no ar publicamente, respondendo em tempo real
 - Mesmo `.pkl`, mesmo contrato de pré-processamento, dois padrões de
-  arquitetura diferentes — sem duplicar lógica de inferência
+  arquitetura diferentes sem duplicar lógica de inferência
 
-**Aprendizados:**
-
-<!-- Espaço para reflexões próprias sobre os Deploys 1 e 2 -->
-
-**Próximos passos:**
-- [ ] Preencher a seção de aprendizados acima
