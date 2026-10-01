@@ -2,7 +2,7 @@
 
 Comparação prática de dois padrões de deploy para o mesmo modelo de classificação (LightGBM): **inferência batch agendada** no Databricks, lendo e gravando em PostgreSQL, e **inferência online** via API FastAPI com interface Streamlit, empacotadas em Docker e publicadas no Render.
 
-O foco é a camada de deploy (empacotamento, configuração por ambiente, controle de versões e operação dentro dos limites de planos gratuitos), não a modelagem. O modelo de produção é um artefato fornecido pelo curso que deu origem ao projeto. As afirmações deste README foram verificadas no código, no histórico do job e no banco.
+O foco é a camada de deploy (empacotamento, configuração por ambiente, controle de versões e operação dentro dos limites de planos gratuitos), não a modelagem. 
 
 🔗 **[Interface ao vivo](https://deployml-onpremise.onrender.com)**: instância gratuita; após um período parada, a primeira requisição pode levar cerca de 1 minuto.
 
