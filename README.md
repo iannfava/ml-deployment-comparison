@@ -1,4 +1,4 @@
-# Deploy de Modelo de ML — 2 Abordagens
+# Deploy de Modelo de Machine Learning : 2 Abordagens
 
 O mesmo modelo de Machine Learning colocado em produção de 2 formas: um **job batch agendado no Databricks** e uma **API + interface em container Docker no Render**.
 
