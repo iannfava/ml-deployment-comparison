@@ -192,7 +192,7 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 ## Estrutura do repositório
 
 ```
-├── 00_modelagem/                 # notebook de modelagem refeito + dataset
+├── 00_modelagem/                 # notebook de modelagem + dataset
 ├── 01_deploy_batch_databricks/   # notebooks do job, DDL e o .pkl
 ├── 02_deploy_api_container/      # app.py, streamlit_app.py, Dockerfile, requirements.txt e o .pkl
 ├── models/                       # modelo de referência (HistGradientBoosting), não usado em produção
