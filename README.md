@@ -128,6 +128,8 @@ Se não houver nada pendente, o notebook encerra sem chamar o modelo. A leitura 
 | Clientes gerados × pontuados | 161.200 × 161.200 (nenhum pendente, nenhum duplicado) |
 | Período | 04/09 a 08/09/2026, mais 2 execuções em 18/09 |
 
+![Contagens conferidas no Postgres](docs/images/deploy1-contagens.png)
+
 ![Previsões no Postgres via DBeaver](docs/images/deploy1-query-postgres.png)
 
 #### O agendamento parou em 08/09
@@ -159,6 +161,7 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 - **Tradução de categorias:** a interface mostra "Feminino/Masculino/Outro", mas envia "Female/Male/Other", os valores vistos no treino. Uma categoria desconhecida não gera erro no TargetEncoder, só piora a previsão em silêncio.
 - **`libgomp1`:** o LightGBM depende da biblioteca OpenMP (`libgomp`), que não vem na imagem `python:3.10-slim`.
 - **`${PORT}` com padrão 8501:** rodando local, usa 8501. No Render, a plataforma define a porta e só encaminha tráfego para ela. O primeiro deploy subiu com a porta fixa, e o commit seguinte ("corrige porta variavel para Render") trocou para `${PORT}`.
+
 ![Resultado de uma previsão](docs/images/deploy2-resultado.png)
 
 ![Histórico de deploys no Render](docs/images/deploy2-render-deploy.png)
