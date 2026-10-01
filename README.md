@@ -53,7 +53,7 @@ Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.
 **O que é diferente: controle de versões.**
 
 - No **Deploy 2**, eu controlo o ambiente inteiro. A imagem usa `python:3.10-slim` e o `requirements.txt` fixa as versões do treino: scikit-learn 1.7.1, lightgbm 4.6.0, pandas 2.2.3, numpy 2.2.6 e joblib 1.5.1.
-- No **Deploy 1**, o ambiente é gerenciado pelo Databricks Serverless. Só consegui fixar o LightGBM (`pip install lightgbm==4.6.0`), e o resto veio da plataforma (Python 3.12, numpy 2.1.3). Funcionou, mas não é o ambiente exato do treino. É o trade-off entre controle e conveniência.
+- No **Deploy 1**, o ambiente é gerenciado pelo Databricks Serverless, e só o LightGBM foi fixado (`pip install lightgbm==4.6.0`). O resto veio pronto da plataforma (Python 3.12, numpy 2.1.3). Funcionou, mas não é o ambiente exato do treino. Daria para fixar as outras bibliotecas do mesmo jeito, e isso está nos próximos passos.
 
 ---
 
