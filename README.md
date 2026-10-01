@@ -197,5 +197,4 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 ├── 02_deploy_api_container/      # app.py, streamlit_app.py, Dockerfile, requirements.txt e o .pkl
 ├── models/                       # modelo de referência (HistGradientBoosting), não usado em produção
 ├── docs/images/                  # diagrama e prints
-└── notas.md                      # diário de bordo
 ```
