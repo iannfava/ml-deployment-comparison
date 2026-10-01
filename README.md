@@ -39,7 +39,7 @@ Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.
 |---|---|---|
 | Quando a previsão fica pronta | Na próxima execução do job | Na hora da requisição |
 | Ambiente | Databricks Free Edition, computação Serverless | Render plano Free, 1 container Docker |
-| Limite do plano gratuito | Cota de computação: ao estourar, o job para (ver [o que aconteceu](#o-agendamento-parou-em-0809)) | A instância "dorme" quando fica parada |
+| Limite do plano gratuito | Cota de computação, provável causa da parada do job (ver [o que aconteceu](#o-agendamento-parou-em-0809)) | A instância "dorme" quando fica parada |
 | Peças para manter | Job com 2 tarefas dependentes + banco externo | 1 container com 2 processos |
 | Quando usar | Muitos registros, sem urgência | Uso interativo, um cliente por vez |
 
