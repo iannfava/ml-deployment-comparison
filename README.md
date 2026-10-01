@@ -33,7 +33,7 @@ Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.
 
 ## 2. Arquitetura
 
-![Um modelo, duas formas de deploy](docs/images/diagrama-arquiteturas.svg)
+![Um modelo, duas formas de deploy](docs/images/diagrama-arquiteturas.png)
 
 | | Batch (Databricks) | API + Interface (Render) |
 |---|---|---|
