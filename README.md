@@ -168,7 +168,7 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 ## 5. Resultados, limitações e próximos passos
 
 **Resultados**
-- Deploy 1: 161.200 previsões gravadas em 1.612 execuções agendadas, sem duplicatas.
+- Deploy 1: 161.200 previsões gravadas em 1.612 execuções, sem duplicatas.
 - Deploy 2: interface pública no Render, respondendo previsões via API interna.
 - O mesmo `.pkl` (hash idêntico) nos dois deploys, sem reimplementar o pré-processamento.
 
