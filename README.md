@@ -155,11 +155,10 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 
 - **FastAPI** (`app.py`) roda na porta 8000, com `GET /health` e `POST /predict`. A entrada é validada por um modelo Pydantic: um campo faltando ou de tipo errado retorna erro 422 antes de chegar ao modelo.
 - **Streamlit** (`streamlit_app.py`) roda na porta `${PORT}`, que é a única porta que o Render expõe. Ele chama a API pelo endereço em `API_URL`, que por padrão é `http://127.0.0.1:8000`, o próprio container.
-- **Tradução de categorias:** a interface mostra "Feminino/Masculino/Outro", mas envia "Female/Male/Other", os valores vistos no treino. Uma categoria desconhecida não gera erro no TargetEncoder, só piora a previsão em silêncio.
 - **Por isso a API não é pública:** quem acessa o link usa a interface, e a interface usa a API internamente.
+- **Tradução de categorias:** a interface mostra "Feminino/Masculino/Outro", mas envia "Female/Male/Other", os valores vistos no treino. Uma categoria desconhecida não gera erro no TargetEncoder, só piora a previsão em silêncio.
 - **`libgomp1`:** o LightGBM depende da biblioteca OpenMP (`libgomp`), que não vem na imagem `python:3.10-slim`.
 - **`${PORT}` com padrão 8501:** rodando local, usa 8501. No Render, a plataforma define a porta e só encaminha tráfego para ela. O primeiro deploy subiu com a porta fixa, e o commit seguinte ("corrige porta variavel para Render") trocou para `${PORT}`.
-
 ![Resultado de uma previsão](docs/images/deploy2-resultado.png)
 
 ![Histórico de deploys no Render](docs/images/deploy2-render-deploy.png)
