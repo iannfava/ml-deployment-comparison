@@ -187,10 +187,6 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 - [ ] Conectar o workspace do Databricks ao GitHub (Git folders), para que o repositório seja a fonte única dos dois deploys.
 - [ ] Na API, chamar só o `predict_proba` e derivar a classe dele, em vez de passar pelo pipeline duas vezes.
 
-**Aprendizados**
-
-<!-- Escrever com as próprias palavras. -->
-
 ---
 
 ## Estrutura do repositório
