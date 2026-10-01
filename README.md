@@ -75,14 +75,14 @@ Há 2 modelos no repositório, e só um está em produção:
 
 | Arquivo | Classificador | Origem | Uso |
 |---|---|---|---|
-| `01_…/` e `02_…/shopping_preference_model.pkl` | LGBMClassifier | Fornecido pelo curso | **Produção** nos 2 deploys |
-| `models/shopping_preference_pipeline.pkl` | HistGradientBoostingClassifier | Gerado ao executar o notebook de modelagem do curso (`00_modelagem/`) | Só referência, nunca implantado |
+| `01_…/` e `02_…/shopping_preference_model.pkl` | LGBMClassifier | Artefato pronto, sem notebook de treino | **Produção** nos 2 deploys |
+| `models/shopping_preference_pipeline.pkl` | HistGradientBoostingClassifier | Gerado pelo notebook em `00_modelagem/` | Só referência, nunca implantado |
 
 O modelo de produção veio pronto. Não tenho o notebook de treino dele, só o próprio arquivo. Inspecionando o `.pkl`, dá para ver o pipeline e os hiperparâmetros (`n_estimators=500`, `num_leaves=15`, `class_weight='balanced'`).
 
 **Por que as numéricas passam sem padronizar:** modelos de árvore, como o LightGBM, decidem por cortes do tipo "idade > 35?", e a escala do número não muda onde o corte cai. Por isso o pipeline de produção usa `passthrough`.
 
-No notebook de `00_modelagem/`, refiz o processo completo:
+O notebook de `00_modelagem/` percorre o processo completo:
 
 | Etapa | O que faz |
 |---|---|
