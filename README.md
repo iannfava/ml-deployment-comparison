@@ -22,7 +22,7 @@ Um pipeline scikit-learn prevê se um cliente tem perfil de compra **Online** (1
           LGBMClassifier
 ```
 
-Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.pkl` foi implementado de 2 formas, cada uma para um cenário diferente:
+Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.pkl` foi implantado de 2 formas, cada uma para um cenário diferente:
 
 | Deploy | Cenário | Status |
 |---|---|---|
