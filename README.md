@@ -1,10 +1,10 @@
-# Deploy de Modelo de Machine Learning : 2 Abordagens
+# Deploy de Modelo de Machine Learning: Batch vs. API
 
-O mesmo modelo de Machine Learning colocado em produção de 2 formas: um **job batch agendado no Databricks** e uma **API + interface em container Docker no Render**.
+Comparação prática de dois padrões de deploy para o mesmo modelo de classificação (LightGBM): **inferência batch agendada** no Databricks, lendo e gravando em PostgreSQL, e **inferência online** via API FastAPI com interface Streamlit, empacotadas em Docker e publicadas no Render.
 
-O projeto parte de uma live de um curso de deploy de ML. O modelo em produção foi **fornecido pelo curso**. A minha parte foi implantá-lo nos dois ambientes, resolver o que quebrou no caminho e documentar tudo com evidência (código, prints e consultas no banco). Em paralelo, refiz a modelagem do zero num notebook separado, para entender o processo (ver [Modelagem](#modelagem)).
+O foco é a camada de deploy (empacotamento, configuração por ambiente, controle de versões e operação dentro dos limites de planos gratuitos), não a modelagem. O modelo de produção é um artefato fornecido pelo curso que deu origem ao projeto. As afirmações deste README foram verificadas no código, no histórico do job e no banco.
 
-🔗 **[Abrir a interface do Deploy 2](https://deployml-onpremise.onrender.com)**. O plano gratuito do Render desliga a instância quando fica parada, então a primeira requisição pode levar cerca de 1 minuto.
+🔗 **[Interface ao vivo](https://deployml-onpremise.onrender.com)**: instância gratuita; após um período parada, a primeira requisição pode levar cerca de 1 minuto.
 
 ![Interface do Deploy 2 em uso](docs/images/deploy2-interface.png)
 
@@ -22,7 +22,7 @@ Um pipeline scikit-learn prevê se um cliente tem perfil de compra **Online** (1
           LGBMClassifier
 ```
 
-Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.pkl` foi implantado de 2 formas, cada uma para um cenário diferente:
+Ter o modelo treinado não é o mesmo que ter o modelo em produção. O mesmo `.pkl` foi implementado de 2 formas, cada uma para um cenário diferente:
 
 | Deploy | Cenário | Status |
 |---|---|---|
