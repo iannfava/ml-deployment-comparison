@@ -76,7 +76,7 @@ Há 2 modelos no repositório, e só um está em produção:
 | Arquivo | Classificador | Origem | Uso |
 |---|---|---|---|
 | `01_…/` e `02_…/shopping_preference_model.pkl` | LGBMClassifier | Fornecido pelo curso | **Produção** nos 2 deploys |
-| `models/shopping_preference_pipeline.pkl` | HistGradientBoostingClassifier | Gerado pelo meu notebook em `00_modelagem/` | Só referência, nunca implantado |
+| `models/shopping_preference_pipeline.pkl` | HistGradientBoostingClassifier | Gerado ao executar o notebook de modelagem do curso (`00_modelagem/`) | Só referência, nunca implantado |
 
 O modelo de produção veio pronto. Não tenho o notebook de treino dele, só o próprio arquivo. Inspecionando o `.pkl`, dá para ver o pipeline e os hiperparâmetros (`n_estimators=500`, `num_leaves=15`, `class_weight='balanced'`).
 
