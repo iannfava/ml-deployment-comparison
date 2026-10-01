@@ -184,6 +184,8 @@ CMD uvicorn app:app --host 0.0.0.0 --port 8000 & \
 - [ ] Trocar o `.env` no Databricks por Databricks Secrets.
 - [ ] Fixar scikit-learn e pandas também no Deploy 1.
 - [ ] Medir latência do Deploy 2 (com e sem cold start).
+- [ ] Conectar o workspace do Databricks ao GitHub (Git folders), para que o repositório seja a fonte única dos dois deploys.
+- [ ] Na API, chamar só o `predict_proba` e derivar a classe dele, em vez de passar pelo pipeline duas vezes.
 
 **Aprendizados**
 
