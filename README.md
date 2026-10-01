@@ -126,13 +126,13 @@ Se não houver nada pendente, o notebook encerra sem chamar o modelo. A leitura 
 | Previsões gravadas | 161.200 |
 | Execuções bem-sucedidas | 1.612 (100 clientes cada) |
 | Clientes gerados × pontuados | 161.200 × 161.200 (nenhum pendente, nenhum duplicado) |
-| Período | 04/09 a 08/09/2026, mais 1 execução em 18/09 |
+| Período | 04/09 a 08/09/2026, mais 2 execuções em 18/09 |
 
 ![Previsões no Postgres via DBeaver](docs/images/deploy1-query-postgres.png)
 
 #### O agendamento parou em 08/09
 
-O job estava agendado **a cada minuto**, como demonstração. Em produção real, faria sentido rodar uma vez por dia. Ele funcionou de 04 a 08/09 e depois todas as execuções passaram a terminar com status **Evicted**:
+O job estava agendado **a cada minuto**, como demonstração. Em produção real, faria sentido rodar uma vez por dia. Ele funcionou de 04 a 08/09 e depois as execuções passaram a terminar com status **Evicted** (só 2 rodaram com sucesso depois disso, em 18/09):
 
 - a execução **nunca começava**: ficava 48 horas na fila esperando computação e era descartada;
 - a tarefa `inferencia` aparecia como *Upstream evicted*, porque depende da `gerar_dados`.
